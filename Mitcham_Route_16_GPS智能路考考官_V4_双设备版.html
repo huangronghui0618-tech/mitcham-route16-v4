@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mitcham Route #16 GPS智能路考考官 V4 双设备GPS版</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f5f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif}.wrap{max-width:900px;margin:auto;padding:14px}.hero{background:#111;color:#fff;border-radius:18px;padding:18px}.hero h1{margin:0 0 6px;font-size:24px}.hero p{margin:0;line-height:1.5;font-size:14px}.card{background:#fff;border-radius:16px;padding:15px;margin:12px 0;box-shadow:0 2px 12px #0001}.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.btn{width:100%;border:0;border-radius:12px;padding:14px 10px;font-size:16px;font-weight:800;cursor:pointer;margin:5px 0;text-align:center;text-decoration:none}.dark{background:#111;color:#fff}.blue{background:#1677e8;color:#fff}.green{background:#16803a;color:#fff}.gray{background:#e9edf2;color:#111}.red{background:#fff0f0;color:#a00020}.hide{display:none}.status{padding:11px;border-radius:10px;background:#eef2f7;line-height:1.5}.ok{background:#edf8ef;color:#176b31}.warn{background:#fff3df;color:#8a4b00}.danger{background:#fff0f0;color:#9c1111}.small{font-size:13px;line-height:1.55;color:#666}.cmd{font-size:23px;font-weight:850;line-height:1.45;margin:10px 0}.title{font-size:22px;font-weight:850}.pill{display:inline-block;border-radius:99px;padding:5px 9px;margin:2px;background:#edf1f5;font-size:12px}.bar{height:8px;background:#ddd;border-radius:99px;overflow:hidden}.fill{height:100%;width:0;background:#111}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;word-break:break-all;background:#f5f5f5;padding:9px;border-radius:8px}.reason{margin-top:10px;padding:10px;border-left:4px solid #e79b1b;background:#fff8ec;border-radius:7px;line-height:1.5}.safe{margin-top:10px;padding:10px;border-left:4px solid #24844a;background:#eef8f1;border-radius:7px;line-height:1.5}
+</style>
+</head>
+<body><div class="wrap">
+<div class="hero"><h1>🚗 Mitcham Route #16 GPS智能路考考官 V4</h1><p><b>双设备GPS版：</b>iPhone负责真实GPS；Windows电脑Chrome负责大屏考官、语音、考点和恢复逻辑。两台设备通过WebRTC数据通道传送位置，不需要把GPS坐标上传到普通中转服务器；PeerJS仅负责连接建立。</p></div>
+<div class="card"><div class="grid"><button class="btn blue" onclick="setRole('phone')">📱 iPhone：GPS发送端</button><button class="btn dark" onclick="setRole('pc')">💻 电脑：智能考官端</button></div><div id="roleStatus" class="status">请选择本设备角色。</div></div>
+
+<div id="phonePanel" class="card hide"><h2>📱 iPhone GPS发送端</h2><div class="small">在iPhone Safari/Chrome中打开本程序。允许定位后，保持此页面打开。它会持续把经纬度、精度和速度发送给电脑。</div><button class="btn green" onclick="phoneStart()">📍 开始采集iPhone GPS</button><button class="btn gray" onclick="phoneStop()">■ 停止GPS</button><div id="phoneStatus" class="status">尚未开始。</div><div class="small">电脑端会显示一个连接ID。把电脑ID输入下面：</div><input id="pcId" style="width:100%;padding:13px;border:1px solid #ccc;border-radius:10px;font-size:16px" placeholder="粘贴电脑连接ID"><button class="btn blue" onclick="phoneConnect()">🔗 连接电脑考官</button><div id="phoneConn" class="status">未连接。</div></div>
+
+<div id="pcPanel" class="card hide"><h2>💻 Windows电脑智能考官端</h2><div class="small">电脑不读取自己的GPS。它只接收iPhone发送的实时GPS。</div><button class="btn dark" onclick="pcStart()">🖥️ 创建电脑考官连接</button><div id="pcIdBox" class="mono">等待生成连接ID…</div><button class="btn gray" onclick="copyId()">复制连接ID</button><div id="pcConn" class="status">等待iPhone连接。</div></div>
+
+<div id="examPanel" class="card hide"><div class="grid"><button class="btn green" onclick="startExam()">▶ 开始GPS模拟考试</button><button class="btn gray" onclick="repeatCmd()">🔊 重播考官指令</button></div><div id="gpsStatus" class="status">等待iPhone GPS。</div><div class="bar"><div id="fill" class="fill"></div></div><div id="examScreen" style="margin-top:12px">尚未开始。</div><div class="grid"><button class="btn gray" onclick="recoverNow()">🧭 立即恢复路线</button><button class="btn red" onclick="simulateDeviation()">⚠️ 模拟偏离路线</button></div><a id="maps" class="btn blue" target="_blank" rel="noopener">🗺️ 打开Google Maps恢复导航</a></div>
+
+<div class="card"><b>V4运行逻辑</b><div class="small"><span class="pill">1 GPS</span>iPhone持续定位 → <span class="pill">2 考点</span>电脑判断接近考点 → <span class="pill">3 语音</span>只在正确位置播报 → <span class="pill">4 偏离</span>暂停原指令 → <span class="pill">5 恢复</span>寻找最近未完成考点 → <span class="pill">6 导航</span>Google Maps返回 → <span class="pill">7 继续</span>回到路线后继续。</div></div>
+<div class="card"><b>⚠️ 实车安全</b><ul class="small"><li>驾驶员不要在行驶中操作电脑或手机；启动、配对和导航目标选择应在停车状态完成，最好由副驾驶操作。</li><li>STOP、Give Way、道路标线、临时交通标志、施工、警察指挥和真实交通状况永远优先于本模拟器。</li><li>V4是练习工具，不是VicRoads官方考试软件，也不能保证考试当天采用相同路线。</li><li>iPhone定位必须获得系统和浏览器授权；真实GPS体验最好在HTTPS网页中运行。保存为本地HTML后，iPhone的浏览器定位权限可能受限。</li></ul></div>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+const points=[
+['M16-00','Mitcham 考试中心出发','93A Heatherdale Rd, Ringwood VIC 3134','考试开始。安全时驶出考试中心，向 Heatherdale Road 南行。','起步前检查镜子、信号、盲区和车辆控制；按现场指示驶出。','起步观察不足、未正确使用信号或车辆控制不稳'],
+['M16-01','Heatherdale Road → Kulnine Avenue','Kulnine Ave & Heatherdale Rd, Ringwood VIC 3134','前方请右转进入 Kulnine Avenue。','提前观察、右转灯、肩部检查；确认对向车辆和行人安全。','未观察、未打灯、右转位置不正确'],
+['M16-02','Kulnine Avenue → Walwa Street','Walwa St & Kulnine Ave, Ringwood VIC 3134','前方请右转进入 Walwa Street。','右灯、镜子、肩检；进入住宅道路后保持适当速度。','肩检遗漏、速度不当、转弯位置错误'],
+['M16-03','Walwa Street → Culwell Avenue','Culwell Ave & Walwa St, Ringwood VIC 3134','前方请左转进入 Culwell Avenue。','左灯、观察路口；若现场有 Give Way/Stop，严格按标志停车或让行。','忽略 Give Way/Stop、观察不足、路线位置错误'],
+['M16-04','Culwell Avenue 转向','Culwell Ave, Ringwood VIC 3134','前方请右转，继续沿 Culwell Avenue 行驶。','确认路口标线和现场标志；右转前完成镜子、信号、肩检。','错过转弯、信号错误、横向位置不稳'],
+['M16-05','Culwell Avenue → Purches Street','Purches St & Culwell Ave, Ringwood VIC 3134','前方请右转进入 Purches Street。','住宅区路口要特别注意右侧来车；按现场 Give Way/Stop 控制。','未让右侧车辆、速度过快、观察不足'],
+['M16-06','Purches Street → Dudley Street','Dudley St & Purches St, Ringwood VIC 3134','前方请左转进入 Dudley Street。','左灯、镜子、肩检；注意停车车辆和行人。','左转观察不足、信号遗漏、擦碰风险'],
+['M16-07','Dudley Street → Hopetoun Street','Hopetoun St & Dudley St, Ringwood VIC 3134','前方请右转进入 Hopetoun Street。','右灯、肩检；在无信号路口按现场标志和让行规则处理。','Give Way/Stop处理错误、抢行、转弯位置错误'],
+['M16-08','Hopetoun Street → Brunswick Road','Brunswick Rd & Hopetoun St, Ringwood VIC 3134','前方请左转进入 Brunswick Road。','提前观察道路两侧；注意学校区域或临时限速标志。','速度控制不足、观察不足、信号错误'],
+['M16-09','Brunswick Road → Linlithgow Street','Linlithgow St & Brunswick Rd, Ringwood VIC 3134','前方请左转进入 Linlithgow Street。','完成镜子、左灯、肩检；保持正确车道。','肩检遗漏、转弯过早/过晚、车道位置错误'],
+['M16-10','Linlithgow Street → Dudley Street','Dudley St & Linlithgow St, Ringwood VIC 3134','前方请右转进入 Dudley Street。','右转前观察对向交通；住宅路口按现场 Give Way/Stop 执行。','Gap selection不足、未让行、信号遗漏'],
+['M16-11','Dudley Street → Cochrane Street','Cochrane St & Dudley St, Ringwood VIC 3134','前方请右转进入 Cochrane Street。','右灯、镜子、肩检；确认路口安全。','观察不足、抢行、转弯路线错误'],
+['M16-12','Cochrane Street → Garden Avenue','Garden Ave & Cochrane St, Ringwood VIC 3134','前方请左转进入 Garden Avenue。','左灯、肩检；注意行人、自行车及路边车辆。','行人观察不足、信号遗漏、位置控制不足'],
+['M16-13','Garden Avenue → Creek Road','Creek Rd & Garden Ave, Ringwood VIC 3134','前方请左转进入 Creek Road。','进入较繁忙道路前选择安全车隙；确认现场限速和车道。','Gap selection不足、速度控制不足、并入位置错误'],
+['M16-14','Creek Road 低速操作/靠边停车','Creek Rd, Ringwood VIC 3134','在考官指示的位置，请安全靠左路边停车。','Mirror → 左灯 → Shoulder Check → 平顺靠边；保持与路缘适当距离。','观察不足、停车位置不安全、靠边距离不合适'],
+['M16-15','Stage 2：Creek Road 南行','Creek Rd, Ringwood VIC 3134','停车动作完成后，安全时重新起步并沿 Creek Road 南行。','重新起步前镜子、信号、肩检；观察盲区后平稳驶出。','重新起步未观察、信号遗漏、抢行'],
+['M16-16','Creek Road → Simpson Street','Simpson St & Creek Rd, Ringwood VIC 3134','前方请右转进入 Simpson Street。','右灯、肩检；确认对向交通安全后转弯。','Gap selection不足、未让行、转弯位置错误'],
+['M16-17','Simpson Street → Mitcham Road','Mitcham Rd & Simpson St, Ringwood VIC 3134','前方请右转进入 Mitcham Road。','这是较繁忙道路：提前判断车流间隙，必要时充分等待；进入后保持正确车道。','抢行、Gap selection不足、进入主路车道错误'],
+['M16-18','Mitcham Road → Whitehorse Road','Whitehorse Rd & Mitcham Rd, Mitcham VIC 3132','前方请右转进入 Whitehorse Road。','提前选择正确车道；观察多车道交通和信号灯；按现场标线完成转弯。','车道选择错误、信号处理错误、速度控制不足'],
+['M16-19','Whitehorse Road → Heatherdale Road','Heatherdale Rd & Whitehorse Rd, Ringwood VIC 3134','前方请右转进入 Heatherdale Road。','提前进入正确车道；确认右转条件和信号；保持安全速度。','多车道位置错误、观察不足、信号遗漏'],
+['M16-20','返回 Mitcham 考试中心','93A Heatherdale Rd, Ringwood VIC 3134','继续沿 Heatherdale Road 行驶，安全时返回考试中心并停车。','保持安全车距和正确车道；进入中心后按考官指示安全停车。','超速、跟车过近、停车位置或车辆控制不足']
+];
+let role='',peer=null,conn=null,watch=null,lastGps=null,started=false,current=0,recovering=false,offCount=0,coords={};
+const $=id=>document.getElementById(id);
+function speak(t){if('speechSynthesis' in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='zh-CN';u.rate=.88;u.pitch=1;speechSynthesis.speak(u)}}
+function setRole(r){role=r;$('phonePanel').classList.toggle('hide',r!=='phone');$('pcPanel').classList.toggle('hide',r!=='pc');$('examPanel').classList.toggle('hide',r!=='pc');$('roleStatus').className='status ok';$('roleStatus').textContent=r==='phone'?'📱 当前设备：iPhone GPS发送端':'💻 当前设备：Windows智能考官端';}
+function pcStart(){peer=new Peer();peer.on('open',id=>{$('pcIdBox').textContent=id;$('pcConn').textContent='等待iPhone连接……';});peer.on('connection',c=>{conn=c;conn.on('open',()=>{$('pcConn').className='status ok';$('pcConn').textContent='🟢 iPhone已连接，等待GPS。';});conn.on('data',d=>{if(d&&d.type==='gps')receiveGps(d)});conn.on('close',()=>{$('pcConn').className='status danger';$('pcConn').textContent='iPhone连接已断开。'});});peer.on('error',e=>{$('pcConn').className='status danger';$('pcConn').textContent='连接错误：'+e.type});}
+function copyId(){navigator.clipboard?.writeText($('pcIdBox').textContent);}
+function phoneConnect(){const id=$('pcId').value.trim();if(!id)return alert('请先输入电脑端连接ID。');if(!peer)peer=new Peer();peer.on('open',()=>{conn=peer.connect(id,{reliable:true});conn.on('open',()=>{$('phoneConn').className='status ok';$('phoneConn').textContent='🟢 已连接电脑考官。';});conn.on('error',e=>$('phoneConn').textContent='连接错误：'+e.type);});peer.on('error',e=>$('phoneConn').textContent='连接错误：'+e.type);}
+function phoneStart(){if(!navigator.geolocation)return $('phoneStatus').textContent='浏览器不支持定位。';watch=navigator.geolocation.watchPosition(pos=>{const d={type:'gps',lat:pos.coords.latitude,lon:pos.coords.longitude,acc:Math.round(pos.coords.accuracy||0),speed:pos.coords.speed??null,ts:Date.now()};lastGps=d;$('phoneStatus').className='status ok';$('phoneStatus').innerHTML='🟢 GPS正常 · 精度约 ±'+d.acc+'米<br>纬度 '+d.lat.toFixed(6)+' · 经度 '+d.lon.toFixed(6);if(conn&&conn.open)conn.send(d)},err=>{$('phoneStatus').className='status danger';$('phoneStatus').textContent='GPS获取失败：'+err.message},{enableHighAccuracy:true,maximumAge:1000,timeout:10000});}
+function phoneStop(){if(watch!==null)navigator.geolocation.clearWatch(watch);watch=null;$('phoneStatus').textContent='GPS已停止。'}
+function distance(a,b){const R=6371000,p=Math.PI/180,dlat=(b.lat-a.lat)*p,dlon=(b.lon-a.lon)*p,x=Math.sin(dlat/2)**2+Math.cos(a.lat*p)*Math.cos(b.lat*p)*Math.sin(dlon/2)**2;return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
+async function geocode(i){if(coords[i])return coords[i];try{const q=encodeURIComponent(points[i][2]);const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=au&q='+q,{headers:{'Accept-Language':'en'}});const j=await r.json();if(j&&j[0])coords[i]={lat:+j[0].lat,lon:+j[0].lon};}catch(e){}return coords[i]}
+async function prepare(){for(let j=0;j<points.length;j++)await geocode(j)}
+function receiveGps(d){lastGps=d;$('gpsStatus').className='status ok';$('gpsStatus').innerHTML='🟢 iPhone GPS：±'+d.acc+'米 · '+d.lat.toFixed(6)+', '+d.lon.toFixed(6);if(!started)return;evaluate(d)}
+async function evaluate(d){const here={lat:d.lat,lon:d.lon};let dc=coords[current]?distance(here,coords[current]):99999;let nf=99999;for(let j=current+1;j<Math.min(points.length,current+5);j++){if(coords[j])nf=Math.min(nf,distance(here,coords[j]))}
+if(!recovering&&dc<=90){const completed=current;showPoint();speak(points[completed][3]);if(current<points.length-1){current++;}else{started=false;speak('模拟考试完成。请安全停车。');}}
+if(!recovering&&dc>180&&nf>1000){offCount++;if(offCount>=3){offCount=0;recoverNow();}}
+else offCount=0;
+if(recovering){const target=findRecovery();if(target>=0&&coords[target]&&distance(here,coords[target])<=110){recovering=false;current=target;showPoint();speak('已回到模拟路线。继续考试。'+points[current][3]);}}
+}
+function showPoint(){const p=points[current];$('fill').style.width=((current+1)/points.length*100)+'%';$('examScreen').innerHTML='<div class="small">考点 '+(current+1)+' / '+points.length+'</div><div class="title">'+p[1]+'</div><div class="cmd">“'+p[3]+'”</div><div class="safe"><b>中文操作提示：</b>'+p[4]+'</div><div class="reason"><b>容易扣分/失误原因：</b>'+p[5]+'</div>';$('maps').href=mapsUrl(p[2])}
+function startExam(){if(role!=='pc')return alert('请在电脑端启动考试。');started=true;recovering=false;current=0;showPoint();speak('GPS智能考试开始。'+points[0][3]);}
+function repeatCmd(){if(started)speak(points[current][3])}
+function findRecovery(){if(!lastGps)return -1;let best=-1,bd=Infinity;for(let j=current+1;j<points.length;j++){if(coords[j]){const d=distance(lastGps,coords[j]);if(d<bd){bd=d;best=j}}}return best}
+function mapsUrl(addr){return 'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(addr)+'&travelmode=driving'}
+function recoverNow(){if(!lastGps){alert('还没有收到iPhone GPS。');return}const t=findRecovery();if(t<0){alert('没有可用恢复点，请停车后检查网络/GPS。');return}recovering=true;const p=points[t];$('examScreen').innerHTML='<div class="title">🧭 路线偏离：恢复模式</div><div class="cmd">“当前路线已偏离。请安全驾驶，不要急于纠正。请导航返回正常考点：'+p[1]+'。”</div><div class="safe"><b>恢复目标：</b>'+p[2]+'<br>回到目标附近后，GPS考官自动恢复。</div><div class="reason"><b>为什么暂停原指令：</b>防止车辆已经走到另一条路时，系统继续播放错误路口指令。</div>';$('maps').href=mapsUrl(p[2]);speak('当前路线已偏离。请安全驾驶，不要急于纠正。请导航返回正常考点：'+p[1]);}
+function simulateDeviation(){if(role!=='pc')return alert('请在电脑端使用。');recoverNow()}
+setRole('pc');
+</script></body></html>
